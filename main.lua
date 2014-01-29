@@ -123,6 +123,43 @@ local function oddQOffsetToCube(params)
     return cubeCoordinate
 end
 
+
+--new and improved evenQOffsetToCube
+local function evenQOffsetToCube(params)
+    local q,r = params.q, params.r
+    local myX = (q )
+    local myZ = r  - (q + bit.band(q,1))  /2    --modified all q to be q-1
+    local myY = -myX - myZ
+    local cubeCoordinate = {x=myX,y=myY,z=myZ}
+    return cubeCoordinate
+    
+end
+
+
+local function evenROffsetToCube(params)
+    local q,r = params.q, params.r
+    local myX = q - ( r + bit.band(r,1)) /2 
+    local myZ = r  
+    local myY = -myX - myZ
+    local cubeCoordinate = {x=myX,y=myY,z=myZ}
+    return cubeCoordinate
+    
+end
+
+local function oddROffsetToCube(params)
+    local q,r = params.q, params.r
+    local myX = q - ( r - bit.band(r,1)) /2 
+    local myZ = r  
+    local myY = -myX - myZ
+    local cubeCoordinate = {x=myX,y=myY,z=myZ}
+    return cubeCoordinate
+    
+end
+
+
+
+
+
 local offsetCood= {
     q = 92,
 r=11}
@@ -164,7 +201,7 @@ local topped = "pointy"
 local offsetX = 90
 local offsetY = 90
 local myColumns = 50 -- ( display.actualContentHeight / hexSize) 
-local myRows = 100 -- ( display.actualContentWidth  / hexSize ) 
+local myRows = 50 -- ( display.actualContentWidth  / hexSize ) 
 
 local my3DArray = require("array3dController")
 
@@ -221,8 +258,12 @@ end
 
 local hexList = {}
 
-local function makeHex(x,y,r,q,dg)
+local function makeHex(x,y,r,q,dg,offsetType)
     local myHexagon = display.newImage("hex1.png")
+    
+    if offsetType == "oddR" or offsetType == "evenR" then
+        myHexagon.rotation = 90
+    end
     
     myHexagon.x = x
     myHexagon.y = y
@@ -235,6 +276,11 @@ local function makeHex(x,y,r,q,dg)
     local mask = graphics.newMask("hexMask.png")
     myHexagon.maskX = myHexagon.x - myHexagon.contentWidth * 0.5
     myHexagon.maskY = myHexagon.y  - myHexagon.contentHeight * 0.5
+    
+    if offsetType == "oddR" or offsetType == "evenR" then
+        myHexagon.maskRotation = 90
+    end
+    
     --myHexagon.maskScaleX, myHexagon.maskScaleY = hexSize/spriteSize, hexSize/spriteSize
     
     myHexagon:setMask(mask)
@@ -251,7 +297,20 @@ local function makeHex(x,y,r,q,dg)
         
         hexes[q][r] = myHexagon
         
-        myHexagon.cubeCoordinates =  oddQOffsetToCube( {q=q, r=r})
+        if offsetType == "oddQ" then
+            myHexagon.cubeCoordinates =  oddQOffsetToCube( {q=q, r=r})
+            
+        end
+        if offsetType == "evenQ" then
+            myHexagon.cubeCoordinates =  evenQOffsetToCube( {q=q, r=r})
+        end
+        if offsetType == "oddR" then
+            myHexagon.cubeCoordinates =  oddROffsetToCube( {q=q, r=r})
+        end
+        if offsetType == "evenR" then
+            myHexagon.cubeCoordinates =  evenROffsetToCube( {q=q, r=r})
+        end
+        
         my3DArray:addTo3DTextArray(myHexagon.cubeCoordinates.x, myHexagon.cubeCoordinates.y, myHexagon.cubeCoordinates.z, myHexagon)
         
         myHexagon.axialCoordinates = cubeToAxial(myHexagon.cubeCoordinates)
@@ -295,12 +354,12 @@ local function makeHex(x,y,r,q,dg)
                 local myCheckRowCol = cubeToOddQOffset(myHexagon.cubeCoordinates)
                 print("check offset q: " .. myCheckRowCol.q," r: " .. myCheckRowCol.r)
                 
---         Range functionality                
---                for i,v in ipairs(hexList) do            
---                    if distanceBetween(myHexagon, v) < 3 then
---                        v:setFillColor(.2,1,.2)
---                    end
---                end
+                --         Range functionality                
+                --                for i,v in ipairs(hexList) do            
+                --                    if distanceBetween(myHexagon, v) < 3 then
+                --                        v:setFillColor(.2,1,.2)
+                --                    end
+                --                end
                 
                 return true
             end
@@ -328,26 +387,87 @@ end
 display.setDefault( "background", 0, 0, 0 )
 
 --  Prototype Hex, needed for width/height calculation
-local myHex1 = makeHex(display.contentCenterX,display.contentCenterY)
+local myHex1 = makeHex(display.contentCenterX,display.contentCenterY,"oddQ")
 myHex1.isVisible = false
 
 
 
-local yMovementUp = - ( myHex1.height * (hexSize/spriteSize) /2)
-local yMovementDown =  ( myHex1.height * (hexSize/spriteSize) /2)
-local xMovementRight = (myHex1.width * (hexSize/spriteSize) * (3/4) )
-
-
 local function makeOddQVerticalGrid(columns,rows,offsetX,offsetY,dg)
+    local yMovementUp = - ( myHex1.height * (hexSize/spriteSize) /2)
+    local yMovementDown =  ( myHex1.height * (hexSize/spriteSize) /2)
+    local xMovementRight = (myHex1.width * (hexSize/spriteSize) * (3/4) )
     
     for i =1, rows do
         
         for j =1, columns do
             -- makeHex(display.contentCenterX+ (myHex1.width * (hexSize/spriteSize) * (3/4) ),display.contentCenterY +( myHex1.height * (hexSize/spriteSize) /2))
             if isOdd(j) then
-                makeHex (offsetX + ( (j-1) *  xMovementRight   ) , offsetY + hexSize * ( i -1)  ,i-1,  j-1,dg  )   --------------BIG CHANGE    i-1, j-1 seem to keep this aligned properly
+                makeHex (offsetX + ( (j-1) *  xMovementRight   ) , offsetY + hexSize * ( i -1)  ,i-1,  j-1,dg ,"oddQ" )   --------------BIG CHANGE    i-1, j-1 seem to keep this aligned properly
             else
-                makeHex(offsetX + ( (j-1) *  xMovementRight ) , offsetY + hexSize *  (i -1 ) + yMovementDown,i-1, j-1 ,dg )
+                makeHex(offsetX + ( (j-1) *  xMovementRight ) , offsetY + hexSize *  (i -1 ) + yMovementDown,i-1, j-1 ,dg, "oddQ" )
+            end
+            
+        end
+    end
+    
+end
+
+local function makeEvenQVerticalGrid(columns,rows,offsetX,offsetY,dg)
+    
+    local yMovementUp =  ( myHex1.height * (hexSize/spriteSize) /2)
+    local yMovementDown = - ( myHex1.height * (hexSize/spriteSize) /2)
+    local xMovementRight = (myHex1.width * (hexSize/spriteSize) * (3/4) )
+    
+    for i =1, rows do
+        
+        for j =1, columns do
+            -- makeHex(display.contentCenterX+ (myHex1.width * (hexSize/spriteSize) * (3/4) ),display.contentCenterY +( myHex1.height * (hexSize/spriteSize) /2))
+            if isOdd(j) then
+                makeHex (offsetX + ( (j-1) *  xMovementRight   ) , offsetY + hexSize * ( i -1)  ,i-1,  j-1,dg ,"evenQ" )   --------------BIG CHANGE    i-1, j-1 seem to keep this aligned properly
+            else
+                makeHex(offsetX + ( (j-1) *  xMovementRight ) , offsetY + hexSize *  (i -1 ) + yMovementDown,i-1, j-1 ,dg, "evenQ" )
+            end
+            
+        end
+    end
+    
+end
+
+local function makeEvenRHorizontalGrid(columns,rows,offsetX,offsetY,dg)
+    
+    local yMovementUp =  ( myHex1.height * (hexSize/spriteSize) * (3/4))
+    local yMovementDown =  ( myHex1.height * (hexSize/spriteSize) * (3/4))
+    local xMovementRight = myHex1.width * (hexSize/spriteSize)
+    
+    for i =1, rows do
+        
+        for j =1, columns do
+            -- makeHex(display.contentCenterX+ (myHex1.width * (hexSize/spriteSize) * (3/4) ),display.contentCenterY +( myHex1.height * (hexSize/spriteSize) /2))
+            if isOdd(i) then
+                makeHex (offsetX + ( (j-1) *  xMovementRight   )  + hexSize/2 , offsetY + yMovementDown * ( i -1)  ,i-1,  j-1,dg ,"evenR" )   --------------BIG CHANGE    i-1, j-1 seem to keep this aligned properly
+            else
+                makeHex (offsetX + ( (j-1) *  xMovementRight   ) , offsetY + yMovementDown * ( i -1)  ,i-1,  j-1,dg ,"evenR" )   --------------BIG CHANGE    i-1, j-1 seem to keep this aligned properly
+            end
+            
+        end
+    end
+    
+end
+
+local function makeOddRHorizontalGrid(columns,rows,offsetX,offsetY,dg)
+    
+    local yMovementUp =  ( myHex1.height * (hexSize/spriteSize) * (3/4))
+    local yMovementDown =  ( myHex1.height * (hexSize/spriteSize) * (3/4))
+    local xMovementRight = myHex1.width * (hexSize/spriteSize)
+    
+    for i =1, rows do
+        
+        for j =1, columns do
+            -- makeHex(display.contentCenterX+ (myHex1.width * (hexSize/spriteSize) * (3/4) ),display.contentCenterY +( myHex1.height * (hexSize/spriteSize) /2))
+            if isOdd(i) then
+                makeHex (offsetX + ( (j-1) *  xMovementRight   )  , offsetY + yMovementDown * ( i -1)  ,i-1,  j-1,dg ,"oddR" )   --------------BIG CHANGE    i-1, j-1 seem to keep this aligned properly
+            else
+                makeHex (offsetX + ( (j-1) *  xMovementRight   )  + hexSize/2  , offsetY + yMovementDown * ( i -1)  ,i-1,  j-1,dg ,"oddR" )   --------------BIG CHANGE    i-1, j-1 seem to keep this aligned properly
             end
             
         end
@@ -364,7 +484,13 @@ myContainer.x = display.contentCenterX
 myContainer.y = display.contentCenterY
 myContainer:insert( myDisplayGroup, true ) 
 
-makeOddQVerticalGrid( myColumns  ,myRows, offsetX - myContainer.width /2 ,offsetY - myContainer.height /2,myDisplayGroup)
+--makeOddQVerticalGrid( myColumns  ,myRows, offsetX - myContainer.width /2 ,offsetY - myContainer.height /2,myDisplayGroup)
+--makeEvenQVerticalGrid( myColumns  ,myRows, offsetX - myContainer.width /2 ,offsetY - myContainer.height /2,myDisplayGroup)
+--makeEvenRHorizontalGrid( myColumns  ,myRows, offsetX - myContainer.width /2 ,offsetY - myContainer.height /2,myDisplayGroup)
+makeOddRHorizontalGrid( myColumns  ,myRows, offsetX - myContainer.width /2 ,offsetY - myContainer.height /2,myDisplayGroup)
+
+
+
 
 local overlay = display.newRect(0, 0, display.contentWidth, display.contentHeight)
 overlay.anchorX = 0
@@ -422,7 +548,7 @@ function overlay:touch(event)
 end
 overlay:addEventListener("touch", overlay)
 
-hexes[2][1]:setFillColor(1,0,0)
+hexes[0][0]:setFillColor(1,0,0)
 
 --my3DArray:dumpArray()
 
